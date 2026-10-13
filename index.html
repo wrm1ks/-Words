@@ -1,0 +1,1954 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Прятки Words</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #0e1220;
+    color: #fff;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .hidden { display: none !important; }
+
+  /* =========================================================
+     ФОНОВЫЙ СЛОЙ
+     ========================================================= */
+  #bgLayer {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .bg-gradient {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity .8s ease;
+    will-change: opacity;
+  }
+
+  #bgLandmark {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 38vh;
+    max-height: 340px;
+    opacity: 0;
+    transition: opacity .6s ease;
+    will-change: opacity;
+  }
+
+  #bgLandmark svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    filter: drop-shadow(0 -6px 24px rgba(0, 0, 0, .4));
+  }
+
+  #bgLabel {
+    position: absolute;
+    top: 44%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: clamp(38px, 12vw, 78px);
+    font-weight: 900;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    opacity: 0;
+    white-space: nowrap;
+    transition: opacity .6s;
+    pointer-events: none;
+  }
+
+  /* =========================================================
+     ГЛАВНОЕ МЕНЮ
+     ========================================================= */
+  #menuScreen {
+    position: fixed;
+    inset: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(8, 11, 20, .55);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  .menu-card {
+    background: linear-gradient(160deg, rgba(35, 48, 92, .95), rgba(22, 28, 51, .95));
+    border: 1px solid rgba(255, 255, 255, .15);
+    border-radius: 26px;
+    padding: 32px 26px 26px;
+    text-align: center;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, .7);
+    max-width: 380px;
+    width: 100%;
+    animation: rise .4s cubic-bezier(.2, 1.2, .4, 1);
+  }
+
+  @keyframes rise {
+    from { transform: translateY(24px) scale(.94); opacity: 0; }
+    to   { transform: none; opacity: 1; }
+  }
+
+  .menu-card h1 {
+    font-size: 30px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    background: linear-gradient(135deg, #ffd166, #ff9f1c);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 6px;
+  }
+
+  .menu-card .subtitle {
+    font-size: 13px;
+    color: #a8b6dd;
+    margin-bottom: 22px;
+  }
+
+  .menu-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 22px;
+  }
+
+  .stat {
+    background: rgba(0, 0, 0, .28);
+    border: 1px solid rgba(255, 255, 255, .1);
+    border-radius: 14px;
+    padding: 12px 8px;
+  }
+
+  .stat-value {
+    font-size: 22px;
+    font-weight: 800;
+    color: #ffd166;
+    line-height: 1.1;
+  }
+
+  .stat-label {
+    font-size: 10px;
+    opacity: .7;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    margin-top: 3px;
+  }
+
+  .menu-btn {
+    display: block;
+    width: 100%;
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: 800;
+    border: none;
+    border-radius: 14px;
+    padding: 14px;
+    cursor: pointer;
+    transition: .15s;
+    margin-top: 10px;
+  }
+
+  .menu-btn.primary {
+    color: #141a2e;
+    background: linear-gradient(135deg, #ffd166, #ff9f1c);
+    box-shadow: 0 8px 24px rgba(255, 159, 28, .4);
+  }
+
+  .menu-btn.secondary {
+    color: #ffd166;
+    background: rgba(255, 209, 102, .12);
+    border: 1px solid rgba(255, 209, 102, .45);
+  }
+
+  .menu-btn.ghost {
+    color: #7a87ab;
+    background: transparent;
+    font-size: 13px;
+    padding: 10px;
+    margin-top: 4px;
+  }
+
+  .menu-btn:active { transform: scale(.97); }
+
+  /* =========================================================
+     ИГРОВОЙ ЭКРАН
+     ========================================================= */
+  #app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+    max-width: 540px;
+    margin: 0 auto;
+    padding: 8px 10px 10px;
+    gap: 6px;
+    position: relative;
+    z-index: 1;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
+  }
+
+  .icon-btn {
+    width: 38px;
+    height: 38px;
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 19px;
+    font-weight: 800;
+    color: #cfe3ff;
+    background: #141a2e;
+    border: 1px solid rgba(255, 255, 255, .22);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: .15s;
+    font-family: inherit;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, .35);
+    line-height: 1;
+    padding-bottom: 2px;
+  }
+
+  .icon-btn:active { transform: scale(.92); }
+
+  .pill {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #141a2e;
+    border: 1px solid rgba(255, 255, 255, .22);
+    border-radius: 12px;
+    padding: 5px 9px;
+    line-height: 1.1;
+    min-width: 46px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, .35);
+  }
+
+  .pill b { font-size: 15px; font-weight: 800; }
+  .pill span { font-size: 9px; opacity: .7; text-transform: uppercase; letter-spacing: .4px; }
+  .pill.coins { border-color: rgba(255, 209, 102, .35); }
+  .pill.coins b { color: #ffd166; }
+
+  .spacer { flex: 1; min-width: 4px; }
+
+  #hintBtn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 16px;
+    font-weight: 800;
+    color: #ffd166;
+    background: #2c2413;
+    border: 1px solid rgba(255, 209, 102, .55);
+    border-radius: 12px;
+    padding: 8px 11px;
+    cursor: pointer;
+    transition: .15s;
+    font-family: inherit;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, .35);
+    flex: 0 0 auto;
+  }
+
+  #hintBtn:active { transform: scale(.94); }
+  #hintBtn.empty {
+    color: #7a87ab;
+    background: #1a1f33;
+    border-color: rgba(255, 255, 255, .15);
+  }
+
+  /* ---------- КРОССВОРД ---------- */
+  #boardWrap {
+    flex: 1 1 auto;
+    min-height: 100px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  #board {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform-origin: center center;
+    transform: translate(-50%, -50%);
+  }
+
+  .cell {
+    position: absolute;
+    width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 21px;
+    font-weight: 700;
+    border-radius: 7px;
+    background: #171d33;
+    box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .18),
+                0 2px 6px rgba(0, 0, 0, .25);
+    transition: background .3s, color .3s, box-shadow .3s;
+    color: transparent;
+  }
+
+  .cell.filled {
+    color: #fff;
+    background: linear-gradient(140deg, #4cc9f0, #4361ee);
+    box-shadow: 0 2px 12px rgba(67, 97, 238, .55);
+  }
+
+  .cell.hinted {
+    color: #ffd166;
+    background: #2c2413;
+    box-shadow: inset 0 0 0 1.5px rgba(255, 209, 102, .6);
+  }
+
+  .cell.pop { animation: pop .35s ease; }
+
+  @keyframes pop {
+    0%   { transform: scale(1); }
+    45%  { transform: scale(1.22); }
+    100% { transform: scale(1); }
+  }
+
+  /* ---------- КОЛЕСО ---------- */
+  #wheelZone {
+    position: relative;
+    flex: 0 0 auto;
+    display: flex;
+    justify-content: center;
+  }
+
+  #wheelWrap {
+    width: min(310px, 80vw, 40vh);
+    aspect-ratio: 1;
+    position: relative;
+    background: radial-gradient(circle,
+      rgba(10, 14, 26, .85) 0%,
+      rgba(10, 14, 26, .65) 45%,
+      rgba(10, 14, 26, .25) 72%,
+      rgba(10, 14, 26, 0) 88%);
+    border-radius: 50%;
+  }
+
+  #wheel {
+    width: 100%;
+    height: 100%;
+    display: block;
+    touch-action: none;
+    position: relative;
+    z-index: 1;
+  }
+
+  #wheel text {
+    text-anchor: middle;
+    dominant-baseline: middle;
+    font-size: 30px;
+    font-weight: 800;
+    fill: #fff;
+    pointer-events: none;
+    font-family: inherit;
+    transition: fill .15s;
+  }
+
+  #wheel .letter circle {
+    fill: #1a2036;
+    stroke: rgba(255, 255, 255, .4);
+    stroke-width: 2.5;
+    filter: drop-shadow(0 3px 8px rgba(0, 0, 0, .55));
+    transition: fill .13s, stroke .13s;
+  }
+
+  #wheel .letter.active circle {
+    fill: #ffd166;
+    stroke: #ffb703;
+    filter: drop-shadow(0 3px 12px rgba(255, 159, 28, .65));
+  }
+
+  #wheel .letter.active text { fill: #141a2e; }
+
+  #centerWord {
+    text-anchor: middle;
+    dominant-baseline: middle;
+    font-size: 21px;
+    font-weight: 800;
+    fill: #ffd166;
+    letter-spacing: 1.5px;
+    pointer-events: none;
+    font-family: inherit;
+    paint-order: stroke;
+    stroke: #141a2e;
+    stroke-width: 3px;
+    stroke-linejoin: round;
+  }
+
+  /* ---------- ТОСТ ---------- */
+  #toast {
+    position: absolute;
+    left: 50%;
+    top: -6px;
+    transform: translate(-50%, 6px);
+    padding: 7px 18px;
+    border-radius: 20px;
+    font-weight: 800;
+    font-size: 15px;
+    letter-spacing: .5px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .18s, transform .18s;
+    white-space: nowrap;
+    z-index: 5;
+  }
+
+  #toast.show { opacity: 1; transform: translate(-50%, 0); }
+  #toast.good  { background: linear-gradient(135deg, #4cc9f0, #4361ee); color: #fff; box-shadow: 0 4px 18px rgba(67, 97, 238, .5); }
+  #toast.bonus { background: linear-gradient(135deg, #ffd166, #ff9f1c); color: #1a1a2e; box-shadow: 0 4px 18px rgba(255, 159, 28, .5); }
+  #toast.bad   { background: rgba(230, 80, 90, .95); color: #fff; }
+  #toast.warn  { background: #2c3450; color: #fff; }
+
+  /* ---------- ФУТЕР ---------- */
+  footer {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+  }
+
+  .foot-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    color: #cfe3ff;
+    background: #141a2e;
+    border: 1px solid rgba(255, 255, 255, .22);
+    border-radius: 12px;
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: .15s;
+    white-space: nowrap;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, .35);
+    min-width: 42px;
+  }
+
+  .foot-btn:active { transform: scale(.94); }
+
+  #rouletteBtn {
+    color: #ffd166;
+    background: #2c2413;
+    border-color: rgba(255, 209, 102, .5);
+  }
+
+  #bonusRow {
+    flex: 1;
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 3px 0;
+  }
+
+  #bonusRow::-webkit-scrollbar { display: none; }
+
+  .bonus-chip {
+    flex: 0 0 auto;
+    font-size: 12px;
+    font-weight: 700;
+    color: #ffd166;
+    background: #2c2413;
+    border: 1px solid rgba(255, 209, 102, .5);
+    border-radius: 8px;
+    padding: 5px 10px;
+    animation: pop .3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .3);
+  }
+
+  #progress {
+    font-size: 13px;
+    font-weight: 800;
+    color: #cfe3ff;
+    background: #141a2e;
+    border: 1px solid rgba(255, 255, 255, .22);
+    border-radius: 10px;
+    padding: 8px 10px;
+    white-space: nowrap;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, .35);
+  }
+
+  /* =========================================================
+     ОКНО ПОБЕДЫ
+     ========================================================= */
+  #winOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(8, 11, 20, .75);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+    opacity: 1;
+    transition: opacity .3s;
+    padding: 20px;
+  }
+
+  #winOverlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+    display: flex !important;
+  }
+
+  #winOverlay.hidden > * { pointer-events: none; }
+
+  .win-card {
+    background: linear-gradient(160deg, #23305c, #161c33);
+    border: 1px solid rgba(255, 255, 255, .18);
+    border-radius: 22px;
+    padding: 28px 30px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, .7);
+    animation: rise .35s cubic-bezier(.2, 1.2, .4, 1);
+    max-width: 400px;
+    width: 100%;
+  }
+
+  .win-card .emoji { font-size: 46px; margin-bottom: 6px; }
+  .win-card h2 { font-size: 22px; margin-bottom: 12px; }
+  .win-card p { font-size: 14px; color: #a8b6dd; margin-bottom: 5px; }
+  .win-card p b { color: #ffd166; font-size: 15px; }
+
+  .coin-reward {
+    display: inline-block;
+    margin: 12px 0 4px;
+    padding: 8px 18px;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 800;
+    color: #141a2e;
+    background: linear-gradient(135deg, #ffd166, #ff9f1c);
+    box-shadow: 0 4px 18px rgba(255, 159, 28, .4);
+    animation: pop .5s ease;
+  }
+
+  .next-level-btn {
+    width: 100%;
+    margin-top: 18px;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 800;
+    color: #141a2e;
+    background: linear-gradient(135deg, #ffd166, #ff9f1c);
+    border: none;
+    border-radius: 13px;
+    padding: 14px;
+    cursor: pointer;
+    transition: .15s;
+    box-shadow: 0 6px 20px rgba(255, 159, 28, .4);
+  }
+
+  .next-level-btn:active { transform: scale(.96); }
+
+  /* =========================================================
+     РУЛЕТКА
+     ========================================================= */
+  #rouletteModal {
+    position: fixed;
+    inset: 0;
+    background: rgba(8, 11, 20, .82);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 60;
+    padding: 20px;
+    opacity: 1;
+    transition: opacity .25s;
+  }
+
+  #rouletteModal.hidden {
+    opacity: 0;
+    pointer-events: none;
+    display: flex !important;
+  }
+
+  #rouletteModal.hidden > * { pointer-events: none; }
+
+  .roulette-card {
+    background: linear-gradient(160deg, #23305c, #161c33);
+    border: 1px solid rgba(255, 255, 255, .18);
+    border-radius: 24px;
+    padding: 26px 24px 22px;
+    text-align: center;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, .75);
+    max-width: 380px;
+    width: 100%;
+    animation: rise .35s cubic-bezier(.2, 1.2, .4, 1);
+  }
+
+  .roulette-card h2 {
+    font-size: 22px;
+    margin-bottom: 6px;
+  }
+
+  .roulette-card .sub {
+    font-size: 13px;
+    color: #a8b6dd;
+    margin-bottom: 18px;
+  }
+
+  .roulette-card .sub b { color: #ffd166; }
+
+  .reel-viewport {
+    width: 240px;
+    height: 84px;
+    margin: 0 auto;
+    position: relative;
+    overflow: hidden;
+    border-radius: 16px;
+    background: #0e1220;
+    border: 1px solid rgba(255, 255, 255, .18);
+    box-shadow: inset 0 4px 18px rgba(0, 0, 0, .6);
+  }
+
+  .reel-viewport::before,
+  .reel-viewport::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 55px;
+    z-index: 3;
+    pointer-events: none;
+  }
+
+  .reel-viewport::before {
+    left: 0;
+    background: linear-gradient(to right, #0e1220 25%, transparent);
+  }
+
+  .reel-viewport::after {
+    right: 0;
+    background: linear-gradient(to left, #0e1220 25%, transparent);
+  }
+
+  .reel-strip {
+    display: flex;
+    height: 100%;
+    will-change: transform;
+  }
+
+  .reel-item {
+    flex: 0 0 80px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: 900;
+    color: #ffd166;
+    gap: 2px;
+  }
+
+  .reel-item .ico { font-size: 18px; opacity: .85; }
+
+  .reel-marker {
+    position: absolute;
+    left: 80px;
+    top: 0;
+    bottom: 0;
+    width: 80px;
+    border-left: 2px solid #ffd166;
+    border-right: 2px solid #ffd166;
+    box-shadow: inset 0 0 24px rgba(255, 209, 102, .25);
+    pointer-events: none;
+    z-index: 2;
+    border-radius: 4px;
+  }
+
+  .roulette-result {
+    min-height: 26px;
+    margin-top: 16px;
+    font-size: 17px;
+    font-weight: 800;
+    color: #ffd166;
+    opacity: 0;
+    transition: opacity .3s;
+  }
+
+  .roulette-result.show {
+    opacity: 1;
+    animation: pop .4s ease;
+  }
+
+  .roulette-balance {
+    margin-top: 8px;
+    font-size: 13px;
+    color: #a8b6dd;
+  }
+
+  .roulette-balance b { color: #ffd166; font-size: 15px; }
+
+  .roulette-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 18px;
+  }
+
+  .spin-btn {
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: 800;
+    color: #141a2e;
+    background: linear-gradient(135deg, #ffd166, #ff9f1c);
+    border: none;
+    border-radius: 14px;
+    padding: 14px;
+    cursor: pointer;
+    box-shadow: 0 6px 20px rgba(255, 159, 28, .4);
+    transition: .15s;
+  }
+
+  .spin-btn:active { transform: scale(.96); }
+  .spin-btn:disabled { opacity: .35; cursor: default; transform: none; }
+
+  .close-btn {
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    color: #a8b6dd;
+    background: rgba(255, 255, 255, .06);
+    border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: 12px;
+    padding: 11px;
+    cursor: pointer;
+    transition: .15s;
+  }
+
+  .close-btn:active { transform: scale(.96); }
+
+  /* ---------- АДАПТАЦИЯ ---------- */
+  @media (max-height: 620px) {
+    .pill { padding: 4px 7px; min-width: 42px; }
+    .pill b { font-size: 14px; }
+    .icon-btn { width: 34px; height: 34px; font-size: 17px; }
+    #bgLandmark { height: 32vh; }
+    .menu-card h1 { font-size: 26px; }
+    .stat-value { font-size: 19px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= ФОН ================= -->
+<div id="bgLayer">
+  <div class="bg-gradient" id="bgA"></div>
+  <div class="bg-gradient" id="bgB"></div>
+  <div id="bgLandmark"></div>
+  <div id="bgLabel"></div>
+</div>
+
+<!-- ================= ГЛАВНОЕ МЕНЮ ================= -->
+<div id="menuScreen">
+  <div class="menu-card">
+    <h1>Прятки Words</h1>
+    <p class="subtitle">Путешествие по 7 чудесам света</p>
+
+    <div class="menu-stats">
+      <div class="stat">
+        <div class="stat-value" id="menuLevel">1</div>
+        <div class="stat-label">Уровень</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="menuCoins">0</div>
+        <div class="stat-label">💰 Монеты</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="menuHints">3</div>
+        <div class="stat-label">💡 Подсказки</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="menuScore">0</div>
+        <div class="stat-label">⭐ Очки</div>
+      </div>
+    </div>
+
+    <button id="playBtn" class="menu-btn primary">▶ Играть</button>
+    <button id="menuRouletteBtn" class="menu-btn secondary">🎰 Рулетка</button>
+    <button id="resetBtn" class="menu-btn ghost">Начать заново</button>
+  </div>
+</div>
+
+<!-- ================= ИГРА ================= -->
+<div id="app" class="hidden">
+  <header>
+    <button id="exitBtn" class="icon-btn" title="В меню">←</button>
+    <div class="pill"><b id="levelNum">1</b><span>уровень</span></div>
+    <div class="pill"><b id="score">0</b><span>очков</span></div>
+    <div class="pill coins"><b id="coinCount">0</b><span>монет</span></div>
+    <div class="spacer"></div>
+    <button id="hintBtn">💡 <span id="hintCount">3</span></button>
+  </header>
+
+  <main id="boardWrap">
+    <div id="board"></div>
+  </main>
+
+  <div id="wheelZone">
+    <div id="toast"></div>
+    <div id="wheelWrap">
+      <svg id="wheel" viewBox="0 0 300 300"></svg>
+    </div>
+  </div>
+
+  <footer>
+    <button class="foot-btn" id="shuffleBtn">🔀</button>
+    <button class="foot-btn" id="rouletteBtn">🎰</button>
+    <div id="bonusRow"></div>
+    <span id="progress">0/0</span>
+  </footer>
+</div>
+
+<!-- ================= ОКНО ПОБЕДЫ ================= -->
+<div id="winOverlay" class="hidden">
+  <div class="win-card">
+    <div class="emoji">🎉</div>
+    <h2>Уровень пройден!</h2>
+    <p>Найдено слов: <b id="winWords">0</b></p>
+    <p>Всего очков: <b id="winScore">0</b></p>
+    <div class="coin-reward">+3 💰</div>
+    <p style="font-size:12px;opacity:.7;">Всего монет: <b id="winTotalCoins">0</b></p>
+    <button class="next-level-btn" id="nextBtn">Следующий уровень →</button>
+  </div>
+</div>
+
+<!-- ================= РУЛЕТКА ================= -->
+<div id="rouletteModal" class="hidden">
+  <div class="roulette-card">
+    <h2>🎰 Рулетка</h2>
+    <p class="sub">Стоимость прокрута: <b>5 💰</b></p>
+
+    <div class="reel-viewport">
+      <div class="reel-strip" id="reelStrip"></div>
+      <div class="reel-marker"></div>
+    </div>
+
+    <div class="roulette-result" id="rouletteResult"></div>
+    <div class="roulette-balance">У тебя: <b id="rouletteBalance">0</b> 💰</div>
+
+    <div class="roulette-actions">
+      <button class="spin-btn" id="spinBtn">Крутить (5 💰)</button>
+      <button class="close-btn" id="closeRouletteBtn">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* =========================================================
+   КОНСТАНТЫ
+   ========================================================= */
+const CELL_SIZE       = 40;    // размер клетки кроссворда, px
+const SAVE_KEY        = 'wow_save_v1';
+const START_HINTS     = 3;     // стартовое число подсказок
+const HINTS_PER_LEVEL = 3;     // монет за пройденный уровень
+const BONUS_COIN      = 1;     // монет за бонусное слово
+const SPIN_COST       = 5;     // монет за прокрут рулетки
+const REEL_ITEM_W     = 80;    // ширина одного элемента ленты рулетки, px
+const REEL_LANDING_START = 22; // начало landing-зоны (индексы)
+const REEL_LANDING_COUNT = 6;  // размер landing-зоны
+
+/* =========================================================
+   СИЛУЭТЫ ЧУДЕС СВЕТА
+   ========================================================= */
+const LANDMARKS = {
+  colosseum: `
+    <defs><mask id="lm">
+      <rect width="400" height="200" fill="white"/>
+      <path d="M75,200 L75,135 Q75,120 90,120 Q105,120 105,135 L105,200 Z" fill="black"/>
+      <path d="M125,200 L125,135 Q125,120 140,120 Q155,120 155,135 L155,200 Z" fill="black"/>
+      <path d="M175,200 L175,135 Q175,120 190,120 Q205,120 205,135 L205,200 Z" fill="black"/>
+      <path d="M225,200 L225,135 Q225,120 240,120 Q255,120 255,135 L255,200 Z" fill="black"/>
+      <path d="M275,200 L275,135 Q275,120 290,120 Q305,120 305,135 L305,200 Z" fill="black"/>
+      <path d="M325,200 L325,135 Q325,120 340,120 Q355,120 355,135 L355,200 Z" fill="black"/>
+    </mask></defs>
+    <path d="M30,200 L30,100 Q30,35 200,35 Q370,35 370,100 L370,200 Z" fill="currentColor" mask="url(#lm)"/>`,
+
+  greatwall: `
+    <path d="M0,200 L0,140
+      L30,140 L30,115 L50,115 L50,95 L70,95 L70,115 L90,115
+      L90,85 L110,85 L110,70 L130,70 L130,85 L150,85
+      L150,120 L170,120 L170,135 L190,135 L190,120 L210,120
+      L210,80 L230,80 L230,65 L250,65 L250,80 L270,80
+      L270,120 L290,120 L290,135 L310,135 L310,120 L330,120
+      L330,90 L350,90 L350,75 L370,75 L370,90 L400,90
+      L400,200 Z" fill="currentColor"/>`,
+
+  petra: `
+    <defs><mask id="lm">
+      <rect width="400" height="200" fill="white"/>
+      <rect x="115" y="130" width="16" height="70" fill="black"/>
+      <rect x="155" y="130" width="16" height="70" fill="black"/>
+      <rect x="229" y="130" width="16" height="70" fill="black"/>
+      <rect x="269" y="130" width="16" height="70" fill="black"/>
+      <path d="M185,200 L185,150 Q185,135 200,135 Q215,135 215,150 L215,200 Z" fill="black"/>
+      <rect x="188" y="85" width="24" height="30" rx="4" fill="black"/>
+    </mask></defs>
+    <path d="M80,200 L80,105 L120,65 L280,65 L320,105 L320,200 Z" fill="currentColor" mask="url(#lm)"/>`,
+
+  machu: `
+    <path d="M0,200
+      L20,195 L20,185 L40,185 L40,175 L60,175 L60,165 L80,165 L80,150 L100,150
+      L100,135 L120,135 L120,115 L140,115 L140,95 L160,95 L160,75 L180,75
+      L180,55 L200,55 L200,45 L220,45 L220,55 L240,55 L240,75 L260,75
+      L260,95 L280,95 L280,115 L300,115 L300,135 L320,135 L320,150 L340,150
+      L340,165 L360,165 L360,175 L380,175 L380,185 L400,185 L400,200 Z" fill="currentColor"/>`,
+
+  chichen: `
+    <path d="M100,200
+      L100,180 L120,180 L120,160 L140,160 L140,140 L160,140 L160,120
+      L180,120 L180,100 L190,100 L190,80 L210,80 L210,100 L220,100 L220,120
+      L240,120 L240,140 L260,140 L260,160 L280,160 L280,180 L300,180 L300,200 Z" fill="currentColor"/>`,
+
+  taj: `
+    <g fill="currentColor">
+      <rect x="130" y="115" width="140" height="85"/>
+      <path d="M148,115 Q148,50 200,38 Q252,50 252,115 Z"/>
+      <path d="M197,38 L197,25 L203,25 L203,38 Z"/>
+      <rect x="96" y="70" width="18" height="130" rx="9"/>
+      <path d="M96,70 Q96,60 105,60 Q114,60 114,70 Z"/>
+      <rect x="286" y="70" width="18" height="130" rx="9"/>
+      <path d="M286,70 Q286,60 295,60 Q304,60 304,70 Z"/>
+    </g>`,
+
+  christ: `
+    <g fill="currentColor">
+      <circle cx="200" cy="48" r="13"/>
+      <rect x="183" y="60" width="34" height="108" rx="4"/>
+      <rect x="128" y="88" width="144" height="22" rx="4"/>
+      <rect x="174" y="168" width="52" height="32"/>
+    </g>`
+};
+
+/* =========================================================
+   ТЕМЫ (7 фонов, циклично переиспользуются)
+   ========================================================= */
+const THEMES = [
+  { name: 'Колизей', location: 'Рим · Италия',
+    theme: { bg1: '#5a3a1e', bg2: '#2a1a0e', bg3: '#140a04', accent: '#e8b87a' },
+    landmark: 'colosseum' },
+  { name: 'Великая стена', location: 'Китай',
+    theme: { bg1: '#7a2418', bg2: '#3a0e08', bg3: '#1a0604', accent: '#ffb088' },
+    landmark: 'greatwall' },
+  { name: 'Петра', location: 'Иордания',
+    theme: { bg1: '#7a3a4a', bg2: '#3a1828', bg3: '#1a0810', accent: '#ff9eb5' },
+    landmark: 'petra' },
+  { name: 'Мачу-Пикчу', location: 'Перу',
+    theme: { bg1: '#1e4a3a', bg2: '#0e2818', bg3: '#04140a', accent: '#7ad9a8' },
+    landmark: 'machu' },
+  { name: 'Чичен-Ица', location: 'Мексика',
+    theme: { bg1: '#4a5a1e', bg2: '#282a0e', bg3: '#141408', accent: '#c8e87a' },
+    landmark: 'chichen' },
+  { name: 'Тадж-Махал', location: 'Индия',
+    theme: { bg1: '#3a3a7a', bg2: '#1a1838', bg3: '#0a0818', accent: '#a8b8ff' },
+    landmark: 'taj' },
+  { name: 'Христос-Искупитель', location: 'Бразилия',
+    theme: { bg1: '#2a5a8a', bg2: '#0e2848', bg3: '#041020', accent: '#7ac8ff' },
+    landmark: 'christ' }
+];
+
+/* =========================================================
+   СЛОВЕСНЫЕ УРОВНИ (27 штук)
+   ========================================================= */
+const WORD_LEVELS = [
+  // --- Базовые ---
+  { letters: ['К','О','Т','С'],
+    words: ['СТОК','КОТ','ТОК','СОК','СОТ'],
+    bonus: ['КТО','СКОТ','КОС'] },
+
+  { letters: ['С','Т','О','Л','К'],
+    words: ['СТОЛ','СЛОТ','ЛОСК','ТОЛК','ЛОТ','ТОЛ','КОТ','ТОК','СОК'],
+    bonus: ['СКОТ','КОЛТ','КОЛ','СТОК'] },
+
+  { letters: ['К','О','Р','О','В','А'],
+    words: ['КОРОВА','КРОВ','КОРА','РОК','ВОР','РОВ'],
+    bonus: ['ВАР','КОВА'] },
+
+  { letters: ['П','О','Р','Т','А'],
+    words: ['ТРОПА','ПОРТ','ТРОП','РОТА','ТАРО','ПОРА','ПАР','РОТ','ПОТ','ТОП'],
+    bonus: ['ПРА','ТАП'] },
+
+  { letters: ['Д','О','М','И','К'],
+    words: ['ДОМИК','ДОМ','КОМ','МОД','КОД','ДОК'],
+    bonus: ['ДИКО','МИД'] },
+
+  { letters: ['К','А','Р','Т','А'],
+    words: ['КАРТА','КАРАТ','ТАРА','АРКА','КАРТ','АКТ','РАК'],
+    bonus: ['КАРА'] },
+
+  { letters: ['М','О','Л','О','К','О'],
+    words: ['МОЛОКО','ЛОМ','КОЛ','КОМ','ОКО'],
+    bonus: ['МОЛОК'] },
+
+  // --- Новые ---
+  { letters: ['С','О','Р','А','А'],
+    words: ['РОСА','СОРА','СОР','РОС','ОСА','РАСА'],
+    bonus: ['САР'] },
+
+  { letters: ['М','О','Р','Е','Л'],
+    words: ['МОРЕ','ЛОМ','МОЛ','РОМ','МОР','МЕЛ','ОРЕЛ'],
+    bonus: ['ЛОР'] },
+
+  { letters: ['К','О','Р','Т'],
+    words: ['КОРТ','КРОТ','РОТ','КОТ','ТОК','РОК'],
+    bonus: [] },
+
+  { letters: ['Б','А','Н','К','А'],
+    words: ['БАНКА','БАНК','БАК','КАБАН'],
+    bonus: [] },
+
+  { letters: ['Л','И','С','А','К'],
+    words: ['ЛИСА','СИЛА','КИСА','ЛИС'],
+    bonus: ['ИСК'] },
+
+  { letters: ['Т','Р','А','В','А'],
+    words: ['ТРАВА','ВАТА','ТАРА'],
+    bonus: ['ВРАТА'] },
+
+  { letters: ['С','Т','Е','Н','А'],
+    words: ['СТЕНА','СТАН','САН','СЕТ'],
+    bonus: ['НЕС'] },
+
+  { letters: ['П','И','Л','А'],
+    words: ['ПИЛА','ЛИПА','ПАЛ','ПИЛ'],
+    bonus: ['ЛАП'] },
+
+  { letters: ['Д','О','Р','О','Г','А'],
+    words: ['ДОРОГА','ДОРОГ','ГОРА','РОД','РОГ','ГОД'],
+    bonus: ['ДОГ'] },
+
+  { letters: ['С','Т','Р','А','Н','А'],
+    words: ['СТРАНА','СТРАН','ТАРАН','РАНА','СТАН','САН'],
+    bonus: ['АСТРА'] },
+
+  { letters: ['В','О','Д','А','П','Л'],
+    words: ['ВОДА','ПОД','ПАД','ОДА','ВОЛ','ПОЛ','ДОЛ'],
+    bonus: ['ЛОВ','ВОД'] },
+
+  { letters: ['К','А','Р','Т','И','Н','А'],
+    words: ['КАРТИНА','КАРТА','ТИНА','РАНА','КРАН','КАРТ','АРКА','ТИР'],
+    bonus: ['АРКАН','КАРАТ'] },
+
+  { letters: ['С','А','М','О','Л','Ё','Т'],
+    words: ['САМОЛЁТ','МАСЛО','СМОЛА','СТОЛ','МАЛО','САЛО','АТОМ','САМ','МОЛ','ЛОМ'],
+    bonus: ['ЛОТ','МОСТ'] },
+
+  { letters: ['К','О','Л','Б','А','С','А'],
+    words: ['КОЛБАСА','БАЛКА','СКАЛА','КОЛБА','КОСА','САЛО','БАК'],
+    bonus: ['БАЛ','КОЛА'] },
+
+  { letters: ['З','А','М','О','К','А'],
+    words: ['ЗАМОК','МАЗОК','КОЗА','МАК','КОМ'],
+    bonus: ['ЗАМКА'] },
+
+  { letters: ['Х','О','Л','С','Т','А'],
+    words: ['ХОЛСТ','СТОЛ','САЛО','ХАОС','ЛОТ','ТОЛ'],
+    bonus: ['СОХА'] },
+
+  { letters: ['Я','Б','Л','О','К','О'],
+    words: ['ЯБЛОКО','БЛОК','ЛОБ','КОЛ','БОК','ОКО'],
+    bonus: ['ЯБЛОК'] },
+
+  { letters: ['С','О','Б','А','К','А'],
+    words: ['СОБАКА','КОСА','БАК','СОК','БОК'],
+    bonus: ['БАСОК'] },
+
+  { letters: ['С','Т','О','Л','Б'],
+    words: ['СТОЛБ','СТОЛ','БОЛТ','СЛОТ','ЛОБ','БОТ','ЛОТ'],
+    bonus: [] },
+
+  { letters: ['С','Т','Р','О','Й','К'],
+    words: ['СТРОЙ','СТОК','РОСТ','СОРТ','ТРОС','КРОТ','РОК','СОК','КОТ','ТОК','РОТ'],
+    bonus: ['ЙОТ'] }
+];
+
+/* Собираем финальный список уровней, привязывая тему по кругу */
+const LEVELS = WORD_LEVELS.map((lvl, i) => {
+  const t = THEMES[i % THEMES.length];
+  return {
+    name: t.name,
+    location: t.location,
+    theme: t.theme,
+    landmark: t.landmark,
+    letters: lvl.letters,
+    words: lvl.words,
+    bonus: lvl.bonus
+  };
+});
+
+/* =========================================================
+   СОСТОЯНИЕ ИГРЫ
+   ========================================================= */
+const state = {
+  // Сохраняется в localStorage:
+  levelIndex: 0,
+  score: 0,
+  coins: 0,
+  hints: START_HINTS,
+
+  // Сессия (не сохраняется):
+  letters: [],
+  words: [],
+  bonus: [],
+  found: new Set(),
+  foundBonus: new Set(),
+  crossword: null,
+  wheelPositions: [],
+  wheelEls: [],
+  path: [],
+  selecting: false,
+  locked: false,
+
+  // Рулетка:
+  reelValues: [],
+  spinning: false
+};
+
+/* =========================================================
+   УТИЛИТЫ DOM
+   ========================================================= */
+const $ = id => document.getElementById(id);
+const board      = $('board');
+const boardWrap  = $('boardWrap');
+const wheelSvg   = $('wheel');
+const toast      = $('toast');
+const winOverlay = $('winOverlay');
+const bonusRow   = $('bonusRow');
+const progressEl = $('progress');
+
+/* =========================================================
+   СОХРАНЕНИЕ
+   ========================================================= */
+function saveGame() {
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify({
+      levelIndex: state.levelIndex,
+      score: state.score,
+      coins: state.coins,
+      hints: state.hints
+    }));
+  } catch (e) {
+    console.warn('Не удалось сохранить:', e);
+  }
+}
+
+function loadSave() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return;
+    const d = JSON.parse(raw);
+    if (typeof d.levelIndex === 'number') state.levelIndex = Math.max(0, d.levelIndex | 0);
+    if (typeof d.score === 'number')      state.score = Math.max(0, d.score | 0);
+    if (typeof d.coins === 'number')      state.coins = Math.max(0, d.coins | 0);
+    if (typeof d.hints === 'number')      state.hints = Math.max(0, d.hints | 0);
+  } catch (e) {
+    console.warn('Не удалось загрузить сохранение:', e);
+  }
+}
+
+function resetSave() {
+  try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+}
+
+/* =========================================================
+   ФОНОВЫЙ СЛОЙ
+   ========================================================= */
+let activeBgId = null;
+
+function landmarkSVG(key, color) {
+  return `<svg viewBox="0 0 400 200" preserveAspectRatio="xMidYMax slice"
+    style="color:${color}">${LANDMARKS[key] || ''}</svg>`;
+}
+
+function applyTheme(level, immediate) {
+  const t = level.theme;
+  const gradient = `radial-gradient(circle at 50% 0%, ${t.bg1} 0%, ${t.bg2} 55%, ${t.bg3} 100%)`;
+  const lm = $('bgLandmark');
+  const label = $('bgLabel');
+
+  if (immediate || !activeBgId) {
+    const a = $('bgA'), b = $('bgB');
+    a.style.transition = 'none';
+    b.style.transition = 'none';
+    a.style.background = gradient;
+    a.style.opacity = '1';
+    b.style.opacity = '0';
+    activeBgId = 'bgA';
+
+    lm.style.transition = 'none';
+    lm.innerHTML = landmarkSVG(level.landmark, t.accent);
+    lm.style.opacity = '1';
+
+    label.style.transition = 'none';
+    label.style.color = t.accent;
+    label.textContent = level.name;
+    label.style.opacity = '0.04';
+
+    requestAnimationFrame(() => {
+      a.style.transition = '';
+      b.style.transition = '';
+      lm.style.transition = '';
+      label.style.transition = '';
+    });
+  } else {
+    const nextId = activeBgId === 'bgA' ? 'bgB' : 'bgA';
+    const nextEl = $(nextId);
+    const curEl  = $(activeBgId);
+    nextEl.style.background = gradient;
+    nextEl.style.opacity = '1';
+    curEl.style.opacity = '0';
+    activeBgId = nextId;
+
+    lm.style.opacity = '0';
+    label.style.opacity = '0';
+    setTimeout(() => {
+      lm.innerHTML = landmarkSVG(level.landmark, t.accent);
+      lm.style.opacity = '1';
+      label.style.color = t.accent;
+      label.textContent = level.name;
+      label.style.opacity = '0.04';
+    }, 320);
+  }
+}
+
+/* =========================================================
+   ГЕНЕРАТОР КРОССВОРДА
+   ========================================================= */
+function buildCrossword(words) {
+  const cells = new Map();
+  const placements = [];
+  const key = (r, c) => r + ',' + c;
+
+  function fits(word, r, c, dir) {
+    const dr = dir === 'v' ? 1 : 0;
+    const dc = dir === 'h' ? 1 : 0;
+
+    if (cells.has(key(r - dr, c - dc))) return -1;
+    if (cells.has(key(r + dr * word.length, c + dc * word.length))) return -1;
+
+    let cross = 0;
+    for (let i = 0; i < word.length; i++) {
+      const rr = r + dr * i;
+      const cc = c + dc * i;
+      const existing = cells.get(key(rr, cc));
+
+      if (existing !== undefined) {
+        if (existing !== word[i]) return -1;
+        cross++;
+      } else {
+        if (dir === 'h') {
+          if (cells.has(key(rr - 1, cc)) || cells.has(key(rr + 1, cc))) return -1;
+        } else {
+          if (cells.has(key(rr, cc - 1)) || cells.has(key(rr, cc + 1))) return -1;
+        }
+      }
+    }
+    return cross;
+  }
+
+  function place(word, r, c, dir) {
+    const dr = dir === 'v' ? 1 : 0;
+    const dc = dir === 'h' ? 1 : 0;
+    for (let i = 0; i < word.length; i++) {
+      cells.set(key(r + dr * i, c + dc * i), word[i]);
+    }
+    placements.push({ word, r, c, dir });
+  }
+
+  const sorted = [...words].sort((a, b) => b.length - a.length);
+  if (!sorted.length) {
+    return { cells, placements, minR: 0, minC: 0, rows: 1, cols: 1 };
+  }
+
+  place(sorted[0], 0, 0, 'h');
+
+  for (let w = 1; w < sorted.length; w++) {
+    const word = sorted[w];
+    let best = null;
+
+    outer:
+    for (const p of placements) {
+      const dr = p.dir === 'v' ? 1 : 0;
+      const dc = p.dir === 'h' ? 1 : 0;
+      const nd = p.dir === 'h' ? 'v' : 'h';
+      const ndr = nd === 'v' ? 1 : 0;
+      const ndc = nd === 'h' ? 1 : 0;
+
+      for (let i = 0; i < p.word.length; i++) {
+        const rr = p.r + dr * i;
+        const cc = p.c + dc * i;
+        for (let j = 0; j < word.length; j++) {
+          if (word[j] !== p.word[i]) continue;
+          const sr = rr - ndr * j;
+          const sc = cc - ndc * j;
+          if (fits(word, sr, sc, nd) > 0) {
+            best = { r: sr, c: sc, dir: nd };
+            break outer;
+          }
+        }
+      }
+    }
+
+    if (!best) {
+      const candidates = [];
+      for (let r = -16; r <= 16; r++) {
+        for (let c = -16; c <= 16; c++) {
+          for (const dir of ['h', 'v']) {
+            if (fits(word, r, c, dir) >= 0) {
+              candidates.push({ r, c, dir, d: r * r + c * c });
+            }
+          }
+        }
+      }
+      if (candidates.length) {
+        candidates.sort((a, b) => a.d - b.d);
+        best = candidates[0];
+      }
+    }
+
+    if (best) place(word, best.r, best.c, best.dir);
+  }
+
+  // Нормализация координат
+  let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
+  for (const k of cells.keys()) {
+    const [r, c] = k.split(',').map(Number);
+    if (r < minR) minR = r;
+    if (r > maxR) maxR = r;
+    if (c < minC) minC = c;
+    if (c > maxC) maxC = c;
+  }
+  if (!cells.size) { minR = maxR = minC = maxC = 0; }
+
+  return {
+    cells, placements, minR, minC,
+    rows: maxR - minR + 1,
+    cols: maxC - minC + 1
+  };
+}
+
+/* =========================================================
+   ОТРИСОВКА КРОССВОРДА
+   ========================================================= */
+function renderBoard() {
+  const cw = state.crossword;
+  board.innerHTML = '';
+  board.style.width  = (cw.cols * CELL_SIZE) + 'px';
+  board.style.height = (cw.rows * CELL_SIZE) + 'px';
+
+  for (const [k] of cw.cells) {
+    const [r, c] = k.split(',').map(Number);
+    const el = document.createElement('div');
+    el.className = 'cell';
+    el.style.left = ((c - cw.minC) * CELL_SIZE + 1) + 'px';
+    el.style.top  = ((r - cw.minR) * CELL_SIZE + 1) + 'px';
+    el.dataset.k = k;
+    board.appendChild(el);
+  }
+  scaleBoard();
+}
+
+function scaleBoard() {
+  const cw = state.crossword;
+  if (!cw) return;
+  const availW = boardWrap.clientWidth  - 16;
+  const availH = boardWrap.clientHeight - 16;
+  if (availW <= 0 || availH <= 0) return;
+  const w = cw.cols * CELL_SIZE;
+  const h = cw.rows * CELL_SIZE;
+  const scale = Math.min(1, availW / w, availH / h);
+  board.style.transform = `translate(-50%, -50%) scale(${scale})`;
+}
+
+function getCellEl(r, c) {
+  return board.querySelector(`[data-k="${r},${c}"]`);
+}
+
+function revealWord(word) {
+  for (const p of state.crossword.placements) {
+    if (p.word !== word) continue;
+    const dr = p.dir === 'v' ? 1 : 0;
+    const dc = p.dir === 'h' ? 1 : 0;
+    for (let i = 0; i < word.length; i++) {
+      const el = getCellEl(p.r + dr * i, p.c + dc * i);
+      if (!el) continue;
+      el.textContent = word[i];
+      el.classList.remove('hinted');
+      el.classList.add('filled', 'pop');
+      setTimeout(() => el.classList.remove('pop'), 400);
+    }
+  }
+}
+
+/* =========================================================
+   КОЛЕСО БУКВ
+   ========================================================= */
+function buildWheel() {
+  const n = state.letters.length;
+  const radius = n <= 4 ? 84 : n <= 5 ? 92 : 100;
+  const letterR = n <= 5 ? 28 : 26;
+  const cx = 150, cy = 150;
+
+  state.wheelPositions = [];
+  for (let i = 0; i < n; i++) {
+    const angle = -Math.PI / 2 + i * (2 * Math.PI / n);
+    state.wheelPositions.push({
+      x: cx + radius * Math.cos(angle),
+      y: cy + radius * Math.sin(angle),
+      r: letterR,
+      letter: state.letters[i]
+    });
+  }
+  renderWheelStatic();
+}
+
+function renderWheelStatic() {
+  const NS = 'http://www.w3.org/2000/svg';
+  wheelSvg.innerHTML = '';
+
+  const defs = document.createElementNS(NS, 'defs');
+  defs.innerHTML =
+    '<linearGradient id="grad" x1="0" y1="0" x2="1" y2="1">' +
+    '<stop offset="0%" stop-color="#ffd166"/>' +
+    '<stop offset="100%" stop-color="#ff7b54"/>' +
+    '</linearGradient>';
+  wheelSvg.appendChild(defs);
+
+  const line = document.createElementNS(NS, 'polyline');
+  line.setAttribute('id', 'pathLine');
+  line.setAttribute('points', '');
+  line.setAttribute('fill', 'none');
+  line.setAttribute('stroke', 'url(#grad)');
+  line.setAttribute('stroke-width', '9');
+  line.setAttribute('stroke-linecap', 'round');
+  line.setAttribute('stroke-linejoin', 'round');
+  line.setAttribute('opacity', '0');
+  wheelSvg.appendChild(line);
+
+  state.wheelEls = [];
+  state.wheelPositions.forEach(p => {
+    const g = document.createElementNS(NS, 'g');
+    g.setAttribute('class', 'letter');
+
+    const circle = document.createElementNS(NS, 'circle');
+    circle.setAttribute('cx', p.x);
+    circle.setAttribute('cy', p.y);
+    circle.setAttribute('r', p.r);
+
+    const text = document.createElementNS(NS, 'text');
+    text.setAttribute('x', p.x);
+    text.setAttribute('y', p.y);
+    text.textContent = p.letter;
+
+    g.appendChild(circle);
+    g.appendChild(text);
+    wheelSvg.appendChild(g);
+    state.wheelEls.push({ g });
+  });
+
+  const centerText = document.createElementNS(NS, 'text');
+  centerText.setAttribute('id', 'centerWord');
+  centerText.setAttribute('x', '150');
+  centerText.setAttribute('y', '150');
+  wheelSvg.appendChild(centerText);
+}
+
+function updateWheelPath() {
+  const line = wheelSvg.querySelector('#pathLine');
+  const cwText = wheelSvg.querySelector('#centerWord');
+  if (!line) return;
+
+  const points = state.path
+    .map(i => `${state.wheelPositions[i].x},${state.wheelPositions[i].y}`)
+    .join(' ');
+
+  line.setAttribute('points', points);
+  line.setAttribute('opacity', state.path.length > 1 ? '0.95' : '0');
+
+  state.wheelEls.forEach((el, i) => {
+    el.g.classList.toggle('active', state.path.includes(i));
+  });
+
+  if (cwText) {
+    cwText.textContent = state.path.map(i => state.letters[i]).join('');
+  }
+}
+
+/* =========================================================
+   ВВОД (свайп по буквам)
+   ========================================================= */
+function toSvgPoint(e) {
+  const rect = wheelSvg.getBoundingClientRect();
+  return {
+    x: (e.clientX - rect.left) / rect.width  * 300,
+    y: (e.clientY - rect.top)  / rect.height * 300
+  };
+}
+
+function hitLetter(p) {
+  for (let i = state.wheelPositions.length - 1; i >= 0; i--) {
+    const w = state.wheelPositions[i];
+    const dx = p.x - w.x;
+    const dy = p.y - w.y;
+    const rr = w.r + 12;
+    if (dx * dx + dy * dy <= rr * rr) return i;
+  }
+  return -1;
+}
+
+wheelSvg.addEventListener('pointerdown', e => {
+  if (state.locked) return;
+  e.preventDefault();
+  const i = hitLetter(toSvgPoint(e));
+  if (i < 0) return;
+  state.selecting = true;
+  state.path = [i];
+  try { wheelSvg.setPointerCapture(e.pointerId); } catch (_) {}
+  updateWheelPath();
+});
+
+wheelSvg.addEventListener('pointermove', e => {
+  if (!state.selecting) return;
+  e.preventDefault();
+  const i = hitLetter(toSvgPoint(e));
+  if (i < 0) return;
+
+  const path = state.path;
+  if (path.length >= 2 && i === path[path.length - 2]) {
+    path.pop();
+    updateWheelPath();
+  } else if (!path.includes(i)) {
+    path.push(i);
+    updateWheelPath();
+  }
+});
+
+function endSelection() {
+  if (!state.selecting) return;
+  state.selecting = false;
+  submitWord();
+}
+
+wheelSvg.addEventListener('pointerup', endSelection);
+wheelSvg.addEventListener('pointercancel', () => {
+  state.selecting = false;
+  state.path = [];
+  updateWheelPath();
+});
+
+/* =========================================================
+   ИГРОВАЯ ЛОГИКА
+   ========================================================= */
+let toastTimer = null;
+
+function flash(text, type) {
+  toast.textContent = text;
+  toast.className = 'show ' + type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toast.className = ''; }, 1100);
+}
+
+function submitWord() {
+  const word = state.path.map(i => state.letters[i]).join('');
+  state.path = [];
+  updateWheelPath();
+
+  if (word.length < 2) return;
+
+  if (state.found.has(word) || state.foundBonus.has(word)) {
+    flash('Уже найдено', 'warn');
+    return;
+  }
+
+  if (state.words.includes(word)) {
+    handleCorrectWord(word);
+  } else if (state.bonus.includes(word)) {
+    handleBonusWord(word);
+  } else {
+    flash('Не подходит', 'bad');
+    shakeWheel();
+  }
+}
+
+function handleCorrectWord(word) {
+  state.found.add(word);
+  state.score += word.length * 10 + 20;
+  revealWord(word);
+  flash(word, 'good');
+  updateHUD();
+  saveGame();
+  checkWin();
+}
+
+function handleBonusWord(word) {
+  state.foundBonus.add(word);
+  state.score += 30;
+  state.coins += BONUS_COIN;
+
+  const chip = document.createElement('span');
+  chip.className = 'bonus-chip';
+  chip.textContent = `${word} +${BONUS_COIN}💰`;
+  bonusRow.appendChild(chip);
+
+  flash(`Бонус! +${BONUS_COIN} 💰`, 'bonus');
+  updateHUD();
+  saveGame();
+}
+
+function shakeWheel() {
+  wheelSvg.animate(
+    [
+      { transform: 'translateX(0)' },
+      { transform: 'translateX(-6px)' },
+      { transform: 'translateX(6px)' },
+      { transform: 'translateX(-4px)' },
+      { transform: 'translateX(0)' }
+    ],
+    { duration: 260, easing: 'ease-in-out' }
+  );
+}
+
+function updateHUD() {
+  $('levelNum').textContent = state.levelIndex + 1;
+  $('score').textContent = state.score;
+  $('coinCount').textContent = state.coins;
+  $('hintCount').textContent = state.hints;
+  $('hintBtn').classList.toggle('empty', state.hints <= 0);
+  progressEl.textContent = `${state.found.size}/${state.words.length}`;
+}
+
+function checkWin() {
+  if (state.found.size < state.words.length) return;
+
+  state.locked = true;
+  state.coins += HINTS_PER_LEVEL;
+  state.score += 50;
+  saveGame();
+  updateHUD();
+
+  setTimeout(() => {
+    $('winWords').textContent = state.words.length;
+    $('winScore').textContent = state.score;
+    $('winTotalCoins').textContent = state.coins;
+    winOverlay.classList.remove('hidden');
+  }, 650);
+}
+
+/* =========================================================
+   ПОДСКАЗКА
+   ========================================================= */
+$('hintBtn').addEventListener('click', () => {
+  if (state.locked) return;
+
+  if (state.hints <= 0) {
+    openRoulette();
+    return;
+  }
+
+  const remaining = state.words.filter(w => !state.found.has(w));
+  if (!remaining.length) return;
+
+  const word = remaining[Math.floor(Math.random() * remaining.length)];
+  const p = state.crossword.placements.find(pl => pl.word === word);
+  if (!p) return;
+
+  const dr = p.dir === 'v' ? 1 : 0;
+  const dc = p.dir === 'h' ? 1 : 0;
+
+  const hidden = [];
+  for (let i = 0; i < word.length; i++) {
+    const el = getCellEl(p.r + dr * i, p.c + dc * i);
+    if (el && !el.classList.contains('filled') && !el.classList.contains('hinted')) {
+      hidden.push({ el, ch: word[i] });
+    }
+  }
+  if (!hidden.length) return;
+
+  const pick = hidden[Math.floor(Math.random() * hidden.length)];
+  pick.el.textContent = pick.ch;
+  pick.el.classList.add('hinted', 'pop');
+  setTimeout(() => pick.el.classList.remove('pop'), 400);
+
+  state.hints--;
+  updateHUD();
+  saveGame();
+  flash('Открыта буква', 'warn');
+});
+
+/* =========================================================
+   ПЕРЕМЕШИВАНИЕ
+   ========================================================= */
+$('shuffleBtn').addEventListener('click', () => {
+  if (state.locked) return;
+  const a = state.letters;
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  state.path = [];
+  buildWheel();
+  updateWheelPath();
+});
+
+/* =========================================================
+   УПРАВЛЕНИЕ ЭКРАНАМИ
+   ========================================================= */
+function showMenu() {
+  winOverlay.classList.add('hidden');
+  closeRoulette();
+  $('app').classList.add('hidden');
+  $('menuScreen').classList.remove('hidden');
+  updateMenu();
+}
+
+function showGame() {
+  $('menuScreen').classList.add('hidden');
+  $('app').classList.remove('hidden');
+  requestAnimationFrame(() => {
+    scaleBoard();
+    setTimeout(scaleBoard, 60);
+  });
+}
+
+function updateMenu() {
+  $('menuLevel').textContent = state.levelIndex + 1;
+  $('menuCoins').textContent = state.coins;
+  $('menuHints').textContent = state.hints;
+  $('menuScore').textContent = state.score;
+}
+
+$('playBtn').addEventListener('click', () => {
+  showGame();
+  loadLevel(state.levelIndex);
+});
+
+$('resetBtn').addEventListener('click', () => {
+  if (!confirm('Начать заново? Весь прогресс будет сброшен.')) return;
+  resetSave();
+  state.levelIndex = 0;
+  state.score = 0;
+  state.coins = 0;
+  state.hints = START_HINTS;
+  saveGame();
+  updateMenu();
+});
+
+$('exitBtn').addEventListener('click', () => {
+  if (state.found.size > 0 && state.found.size < state.words.length) {
+    if (!confirm('Выйти в меню? Прогресс уровня не сохранится.')) return;
+  }
+  saveGame();
+  showMenu();
+});
+
+$('nextBtn').addEventListener('click', () => {
+  winOverlay.classList.add('hidden');
+  loadLevel(state.levelIndex + 1);
+});
+
+/* =========================================================
+   РУЛЕТКА
+   ========================================================= */
+function buildReelValues() {
+  const arr = [];
+
+  // Первые 22 — случайные по весам
+  for (let i = 0; i < REEL_LANDING_START; i++) {
+    const r = Math.random();
+    arr.push(r < 0.5 ? 1 : r < 0.83 ? 2 : 3);
+  }
+
+  // Landing-зона: 3×1, 2×2, 1×3 → 50% / 33% / 17%
+  arr.push(1, 2, 1, 3, 1, 2);
+
+  // Хвост-заполнитель
+  for (let i = 0; i < 2; i++) {
+    const r = Math.random();
+    arr.push(r < 0.5 ? 1 : r < 0.83 ? 2 : 3);
+  }
+  return arr;
+}
+
+function renderReel(values) {
+  const strip = $('reelStrip');
+  strip.innerHTML = '';
+  values.forEach(v => {
+    const el = document.createElement('div');
+    el.className = 'reel-item';
+    el.innerHTML = `<div class="ico">💡</div><div>×${v}</div>`;
+    strip.appendChild(el);
+  });
+  strip.style.transition = 'none';
+  strip.style.transform = `translateX(${REEL_ITEM_W}px)`;
+}
+
+function openRoulette() {
+  winOverlay.classList.add('hidden');
+  $('rouletteModal').classList.remove('hidden');
+  $('rouletteResult').classList.remove('show');
+  $('rouletteResult').textContent = '';
+  $('rouletteBalance').textContent = state.coins;
+  updateSpinBtn();
+
+  if (state.reelValues.length === 0) {
+    state.reelValues = buildReelValues();
+    renderReel(state.reelValues);
+  }
+}
+
+function closeRoulette() {
+  $('rouletteModal').classList.add('hidden');
+}
+
+function updateSpinBtn() {
+  const btn = $('spinBtn');
+  btn.disabled = state.spinning || state.coins < SPIN_COST;
+
+  if (state.spinning) {
+    btn.textContent = 'Крутится...';
+  } else if (state.coins < SPIN_COST) {
+    btn.textContent = `Мало монет (нужно ${SPIN_COST} 💰)`;
+  } else {
+    btn.textContent = `Крутить (${SPIN_COST} 💰)`;
+  }
+}
+
+function spinRoulette() {
+  if (state.spinning) return;
+  if (state.coins < SPIN_COST) return;
+
+  state.spinning = true;
+  state.coins -= SPIN_COST;
+  saveGame();
+  $('rouletteBalance').textContent = state.coins;
+  $('rouletteResult').classList.remove('show');
+  updateSpinBtn();
+
+  const strip = $('reelStrip');
+  strip.style.transition = 'none';
+  strip.style.transform = `translateX(${REEL_ITEM_W}px)`;
+  void strip.offsetWidth;
+
+  const landingOffset = Math.floor(Math.random() * REEL_LANDING_COUNT);
+  const targetIdx = REEL_LANDING_START + landingOffset;
+  const targetX = REEL_ITEM_W * (1 - targetIdx);
+
+  strip.style.transition = 'transform 3.2s cubic-bezier(.15, .85, .22, 1)';
+  strip.style.transform = `translateX(${targetX}px)`;
+
+  setTimeout(() => {
+    const value = state.reelValues[targetIdx];
+    state.hints += value;
+    saveGame();
+    updateHUD();
+    updateMenu();
+
+    $('rouletteResult').textContent = `+${value} 💡  (всего: ${state.hints})`;
+    $('rouletteResult').classList.add('show');
+    $('rouletteBalance').textContent = state.coins;
+
+    // Пересобираем ленту для следующего прокрута
+    state.reelValues = buildReelValues();
+    renderReel(state.reelValues);
+
+    state.spinning = false;
+    updateSpinBtn();
+  }, 3300);
+}
+
+$('spinBtn').addEventListener('click', spinRoulette);
+$('closeRouletteBtn').addEventListener('click', closeRoulette);
+$('rouletteBtn').addEventListener('click', openRoulette);
+$('menuRouletteBtn').addEventListener('click', openRoulette);
+
+/* =========================================================
+   ЗАГРУЗКА УРОВНЯ
+   ========================================================= */
+function loadLevel(idx) {
+  const lvl = LEVELS[idx % LEVELS.length];
+
+  state.levelIndex = idx;
+  state.letters = [...lvl.letters];
+  state.words   = [...lvl.words];
+  state.bonus   = lvl.bonus ? [...lvl.bonus] : [];
+  state.found   = new Set();
+  state.foundBonus = new Set();
+  state.path = [];
+  state.selecting = false;
+  state.locked = false;
+  // hints НЕ сбрасываются — они сквозные
+
+  state.crossword = buildCrossword(state.words);
+
+  bonusRow.innerHTML = '';
+  winOverlay.classList.add('hidden');
+
+  applyTheme(lvl, idx === 0 && activeBgId === null);
+
+  renderBoard();
+  buildWheel();
+  updateWheelPath();
+  updateHUD();
+  saveGame();
+}
+
+/* =========================================================
+   РЕСАЙЗ
+   ========================================================= */
+window.addEventListener('resize', scaleBoard);
+
+/* =========================================================
+   СТАРТ
+   ========================================================= */
+loadSave();
+updateMenu();
+updateHUD();
+
+// Фон для главного меню — тема текущего уровня
+applyTheme(LEVELS[state.levelIndex % LEVELS.length], true);
+
+// Пустая отрисовка колеса (на случай мгновенного клика «Играть»)
+buildWheel();
+</script>
+</body>
+</html>
